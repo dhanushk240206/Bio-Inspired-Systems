@@ -1,0 +1,96 @@
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Step 1: Define the function to optimize
+def fitness_function(x):
+    return x * np.sin(10 * np.pi * x) + 1.0  # Function to maximize
+
+# Step 2: Initialize parameters
+POP_SIZE = 30           # Number of individuals
+GENES = 16              # Binary string length
+MUTATION_RATE = 0.01    # Bit flip probability
+CROSSOVER_RATE = 0.7    # Probability of crossover
+GENERATIONS = 100       # Number of generations
+
+# Step 3: Create initial population (binary strings)
+def generate_individual():
+    return ''.join(random.choice('01') for _ in range(GENES))
+
+def decode(individual):
+    """Convert binary string to float x in [0, 1]"""
+    return int(individual, 2) / (2**GENES - 1)
+
+# Step 4: Evaluate fitness
+def evaluate_population(population):
+    return [fitness_function(decode(ind)) for ind in population]
+
+# Step 5: Selection (roulette wheel)
+def select(population, fitnesses):
+    total_fit = sum(fitnesses)
+    if total_fit == 0:
+        return random.choices(population, k=2)
+    probabilities = [f / total_fit for f in fitnesses]
+    return random.choices(population, weights=probabilities, k=2)
+
+# Step 6: Crossover (single-point)
+def crossover(parent1, parent2):
+    if random.random() < CROSSOVER_RATE:
+        point = random.randint(1, GENES - 1)
+        return parent1[:point] + parent2[point:], parent2[:point] + parent1[point:]
+    return parent1, parent2
+
+# Step 7: Mutation (bit-flip)
+def mutate(individual):
+    return ''.join(
+        bit if random.random() > MUTATION_RATE else random.choice('01')
+        for bit in individual
+    )
+
+# Step 8 & 9: Main GA loop
+def genetic_algorithm():
+    population = [generate_individual() for _ in range(POP_SIZE)]
+    best_individual = population[0]
+    best_fitness = fitness_function(decode(best_individual))
+    fitness_history = []
+
+    for generation in range(GENERATIONS):
+        fitnesses = evaluate_population(population)
+
+        # Track best individual
+        max_fit = max(fitnesses)
+        max_idx = fitnesses.index(max_fit)
+        if max_fit > best_fitness:
+            best_fitness = max_fit
+            best_individual = population[max_idx]
+
+        fitness_history.append(best_fitness)
+
+        # Create next generation
+        new_population = []
+        while len(new_population) < POP_SIZE:
+            parent1, parent2 = select(population, fitnesses)
+            child1, child2 = crossover(parent1, parent2)
+            child1 = mutate(child1)
+            child2 = mutate(child2)
+            new_population.extend([child1, child2])
+
+        population = new_population[:POP_SIZE]
+
+    # Final best
+    best_x = decode(best_individual)
+    return best_x, best_fitness, fitness_history
+
+# Run the GA
+best_x, best_fitness, history = genetic_algorithm()
+
+# Step 9: Output best result
+print(f"Best solution found: x = {best_x:.5f}, f(x) = {best_fitness:.5f}")
+
+# Plotting fitness progress
+plt.plot(history)
+plt.title("Fitness over Generations")
+plt.xlabel("Generation")
+plt.ylabel("Best Fitness")
+plt.grid(True)
+plt.show()
