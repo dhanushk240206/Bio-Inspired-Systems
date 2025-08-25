@@ -1,0 +1,116 @@
+import random
+
+# Constants
+POP_SIZE = 20           # Population size
+GENES = 5               # Number of genes (treatment parameters)
+GENERATIONS = 5      # Number of generations
+MUTATION_RATE = 0.1     # Mutation rate (probability)
+CROSSOVER_RATE = 0.7    # Crossover rate (probability)
+
+# Fitness function for evaluating the effectiveness of a treatment plan
+def fitness_function(treatment_plan):
+    # Hypothetical fitness function based on the survival rate predicted by the treatment plan
+    # In this simplified example, higher values represent better treatment outcomes
+    survival_rate = sum(treatment_plan) / len(treatment_plan)  # Higher gene values = better survival
+    return survival_rate
+
+# Gene Expression Algorithm (GEA) class for an individual
+class Individual:
+    def __init__(self):
+        # Initialize genome with random treatment parameters (genes)
+        self.genome = [random.randint(0, 10) for _ in range(GENES)]  # Random values from 0 to 10
+        self.fitness = self.calculate_fitness()
+
+    def calculate_fitness(self):
+        return fitness_function(self.genome)
+
+    def mutate(self):
+        # Mutate a random gene with some probability
+        if random.random() < MUTATION_RATE:
+            gene_idx = random.randint(0, GENES - 1)
+            self.genome[gene_idx] = random.randint(0, 10)  # Random mutation within gene limits
+        self.fitness = self.calculate_fitness()
+
+    @staticmethod
+    def crossover(parent1, parent2):
+        # Perform one-point crossover between two parents
+        crossover_point = random.randint(1, GENES - 1)
+        child1_genome = parent1.genome[:crossover_point] + parent2.genome[crossover_point:]
+        child2_genome = parent2.genome[:crossover_point] + parent1.genome[crossover_point:]
+        
+        # Create new offspring individuals
+        child1 = Individual()
+        child1.genome = child1_genome
+        child1.fitness = child1.calculate_fitness()
+        
+        child2 = Individual()
+        child2.genome = child2_genome
+        child2.fitness = child2.calculate_fitness()
+        
+        return child1, child2
+
+# Selection function to choose individuals based on fitness (roulette wheel selection)
+def selection(population):
+    total_fitness = sum(individual.fitness for individual in population)
+    pick = random.uniform(0, total_fitness)
+    current = 0
+    for individual in population:
+        current += individual.fitness
+        if current > pick:
+            return individual
+    return population[-1]
+
+# Initialize a population of random individuals
+def initialize_population():
+    return [Individual() for _ in range(POP_SIZE)]
+
+# Get the best individual in the population (highest fitness)
+def best_individual(population):
+    return max(population, key=lambda individual: individual.fitness)
+
+# Main function for running the Genetic Algorithm
+def main():
+    # Initialize population
+    population = initialize_population()
+    
+    # Evolving the population through generations
+    for generation in range(GENERATIONS):
+        # Sort population by fitness (best individuals first)
+        population.sort(key=lambda individual: individual.fitness, reverse=True)
+
+        # Print the best fitness of the generation
+        print(f"Generation {generation}: Best fitness = {population[0].fitness}, Genome = {population[0].genome}")
+
+        # Elitism: Keep the top 2 individuals (best treatment plans)
+        new_population = [population[0], population[1]]
+
+        # Generate new individuals using crossover and mutation
+        while len(new_population) < POP_SIZE:
+            parent1 = selection(population)
+            parent2 = selection(population)
+            
+            # Perform crossover to create offspring
+            if random.random() < CROSSOVER_RATE:
+                child1, child2 = Individual.crossover(parent1, parent2)
+            else:
+                child1, child2 = parent1, parent2  # No crossover, just copy parents
+            
+            # Apply mutation on the children
+            child1.mutate()
+            child2.mutate()
+            
+            # Add the children to the new population
+            new_population.append(child1)
+            if len(new_population) < POP_SIZE:
+                new_population.append(child2)
+
+        # Replace the old population with the new one
+        population = new_population
+
+    # Output the best solution found
+    best = best_individual(population)
+    print("\nBest treatment plan found:")
+    print(f"Genome: {best.genome}, Fitness (Survival Rate): {best.fitness}")
+
+if __name__ == "__main__":
+    main()
