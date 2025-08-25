@@ -1,0 +1,233 @@
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Step 1: Define the function to optimize
+def fitness_function(x):
+    return x * np.sin(10 * np.pi * x) + 1.0  # Function to maximize
+
+# Step 2: Initialize parameters
+POP_SIZE = 30           # Number of individuals
+GENES = 16              # Binary string length
+MUTATION_RATE = 0.01    # Bit flip probability
+CROSSOVER_RATE = 0.7    # Probability of crossover
+GENERATIONS = 100       # Number of generations
+
+# Step 3: Create initial population (binary strings)
+def generate_individual():
+    return ''.join(random.choice('01') for _ in range(GENES))
+
+def decode(individual):
+    """Convert binary string to float x in [0, 1]"""
+    return int(individual, 2) / (2**GENES - 1)
+
+# Step 4: Evaluate fitness
+def evaluate_population(population):
+    return [fitness_function(decode(ind)) for ind in population]
+
+# Step 5: Selection (roulette wheel)
+def select(population, fitnesses):
+    total_fit = sum(fitnesses)
+    if total_fit == 0:
+        return random.choices(population, k=2)
+    probabilities = [f / total_fit for f in fitnesses]
+    return random.choices(population, weights=probabilities, k=2)
+
+# Step 6: Crossover (single-point)
+def crossover(parent1, parent2):
+    if random.random() < CROSSOVER_RATE:
+        point = random.randint(1, GENES - 1)
+        return parent1[:point] + parent2[point:], parent2[:point] + parent1[point:]
+    return parent1, parent2
+
+# Step 7: Mutation (bit-flip)
+def mutate(individual):
+    return ''.join(
+        bit if random.random() > MUTATION_RATE else random.choice('01')
+        for bit in individual
+    )
+
+# Step 8 & 9: Main GA loop
+def genetic_algorithm():
+    population = [generate_individual() for _ in range(POP_SIZE)]
+    best_individual = population[0]
+    best_fitness = fitness_function(decode(best_individual))
+    fitness_history = []
+
+    for generation in range(GENERATIONS):
+        fitnesses = evaluate_population(population)
+
+        # Track best individual
+        max_fit = max(fitnesses)
+        max_idx = fitnesses.index(max_fit)
+        if max_fit > best_fitness:
+            best_fitness = max_fit
+            best_individual = population[max_idx]
+
+        fitness_history.append(best_fitness)
+
+        # Create next generation
+        new_population = []
+        while len(new_population) < POP_SIZE:
+            parent1, parent2 = select(population, fitnesses)
+            child1, child2 = crossover(parent1, parent2)
+            child1 = mutate(child1)
+            child2 = mutate(child2)
+            new_population.extend([child1, child2])
+
+        population = new_population[:POP_SIZE]
+
+    # Final best
+    best_x = decode(best_individual)
+    return best_x, best_fitness, fitness_history
+
+# Run the GA
+best_x, best_fitness, history = genetic_algorithm()
+
+# Step 9: Output best result
+print(f"Best solution found: x = {best_x:.5f}, f(x) = {best_fitness:.5f}")
+
+# Plotting fitness progress
+plt.plot(history)
+plt.title("Fitness over Generations")
+plt.xlabel("Generation")
+plt.ylabel("Best Fitness")
+plt.grid(True)
+plt.show()
+
+
+
+
+
+
+
+
+
+
+import random
+
+# Constants
+POP_SIZE = 100          # Population size
+NUM_CITIES = 20         # Number of cities
+GENERATIONS = 5       # Number of generations
+MUTATION_RATE = 5 / 100 # Mutation probability (5%)
+CROSSOVER_RATE = 80 / 100 # Crossover probability (80%)
+
+# Generate a random distance matrix for 20 cities
+def generate_distance_matrix(num_cities):
+    distance_matrix = [[0 if i == j else random.randint(10, 100) for j in range(num_cities)] for i in range(num_cities)]
+    
+    # Make it symmetric (distance from i to j is the same as from j to i)
+    for i in range(num_cities):
+        for j in range(i + 1, num_cities):
+            distance_matrix[j][i] = distance_matrix[i][j]
+    
+    return distance_matrix
+
+# Sample random distance matrix for 20 cities
+DISTANCE_MATRIX = generate_distance_matrix(NUM_CITIES)
+
+class Individual:
+    def __init__(self):
+        self.genome = random.sample(range(NUM_CITIES), NUM_CITIES)  # Random permutation of cities
+        self.fitness = self.calculate_fitness()
+
+    def calculate_fitness(self):
+        # Calculate the total distance for the tour represented by this genome
+        total_distance = 0
+        for i in range(NUM_CITIES - 1):
+            total_distance += DISTANCE_MATRIX[self.genome[i]][self.genome[i + 1]]
+        total_distance += DISTANCE_MATRIX[self.genome[NUM_CITIES - 1]][self.genome[0]]  # Return to the start
+        self.fitness = 1 / total_distance  # Fitness is the inverse of the total distance
+        return self.fitness
+
+    def mutate(self):
+        # Mutate by swapping two random cities in the tour
+        if random.random() < MUTATION_RATE:
+            i, j = random.sample(range(NUM_CITIES), 2)
+            self.genome[i], self.genome[j] = self.genome[j], self.genome[i]
+        self.fitness = self.calculate_fitness()
+
+    @staticmethod
+    def crossover(parent1, parent2):
+        # Order Crossover (OX) or Partially Mapped Crossover (PMX)
+        start, end = sorted(random.sample(range(NUM_CITIES), 2))
+        child1_genome = [-1] * NUM_CITIES
+        child2_genome = [-1] * NUM_CITIES
+
+        # Copy the crossover section
+        child1_genome[start:end] = parent1.genome[start:end]
+        child2_genome[start:end] = parent2.genome[start:end]
+
+        # Fill the remaining positions with the genes of the other parent
+        fill_parent1 = [city for city in parent2.genome if city not in child1_genome]
+        fill_parent2 = [city for city in parent1.genome if city not in child2_genome]
+
+        for i in range(NUM_CITIES):
+            if child1_genome[i] == -1:
+                child1_genome[i] = fill_parent1.pop(0)
+            if child2_genome[i] == -1:
+                child2_genome[i] = fill_parent2.pop(0)
+
+        # Create children and return them
+        child1 = Individual()
+        child1.genome = child1_genome
+        child1.fitness = child1.calculate_fitness()
+
+        child2 = Individual()
+        child2.genome = child2_genome
+        child2.fitness = child2.calculate_fitness()
+
+        return child1, child2
+
+def selection(population):
+    total_fitness = sum(individual.fitness for individual in population)
+    pick = random.uniform(0, total_fitness)
+    current = 0
+    for individual in population:
+        current += individual.fitness
+        if current > pick:
+            return individual
+    return population[-1]
+
+def initialize_population():
+    return [Individual() for _ in range(POP_SIZE)]
+
+def best_individual(population):
+    return min(population, key=lambda individual: 1 / individual.fitness)  # Minimum distance is the best
+
+def main():
+    population = initialize_population()
+    
+    for generation in range(GENERATIONS):
+        # Sort by fitness (descending), best solution first
+        population.sort(key=lambda individual: individual.fitness, reverse=True)
+
+        print(f"Generation {generation}: Best fitness = {population[0].fitness}, Distance = {1/population[0].fitness}")
+
+        # Elitism: Keep top 2 individuals
+        new_population = [population[0], population[1]]
+
+        while len(new_population) < POP_SIZE:
+            parent1 = selection(population)
+            parent2 = selection(population)
+            if random.random() < CROSSOVER_RATE:
+                child1, child2 = Individual.crossover(parent1, parent2)
+            else:
+                child1, child2 = parent1, parent2  # No crossover, just copy the parents
+            child1.mutate()
+            child2.mutate()
+            new_population.append(child1)
+            if len(new_population) < POP_SIZE:
+                new_population.append(child2)
+
+        population = new_population
+
+    best_solution = best_individual(population)
+    print("\nBest solution found:")
+    print(f"Tour: {best_solution.genome}")
+    print(f"Distance: {1 / best_solution.fitness}")
+
+if __name__ == "__main__":
+    main()
+
