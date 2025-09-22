@@ -1,0 +1,109 @@
+import random
+import math
+
+# ---------- Helper Functions ----------
+
+def distance(a, b):
+    """Euclidean distance between two cities a and b."""
+    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+
+def tour_length(tour, cities):
+    """Compute total length of the TSP tour."""
+    total = 0.0
+    n = len(tour)
+    for i in range(n - 1):
+        total += distance(cities[tour[i]], cities[tour[i + 1]])
+    total += distance(cities[tour[-1]], cities[tour[0]])  # return to start
+    return total
+
+def levy_step_length(beta=1.5):
+    """Generate a Levy-distributed step length (integer)."""
+    u = random.random()
+    step = int(1 / (u ** (1 / beta)))  # heavy tail
+    return max(1, step)
+
+def discrete_levy_flight(tour):
+    """Make a new tour using Levy-flight style swaps."""
+    new_tour = tour[:]  # copy
+    L = levy_step_length()  # number of swaps
+    n = len(new_tour)
+    for _ in range(L):
+        i, j = random.sample(range(n), 2)
+        # swap two cities
+        new_tour[i], new_tour[j] = new_tour[j], new_tour[i]
+    return new_tour
+
+def random_permutation(n):
+    """Random permutation of n cities."""
+    perm = list(range(n))
+    random.shuffle(perm)
+    return perm
+
+# ---------- Cuckoo Search for TSP ----------
+
+def cuckoo_search_tsp(cities, n_nests=15, pa=0.25, max_iter=500, verbose=True):
+    n_cities = len(cities)
+
+    # Initialize nests
+    nests = [random_permutation(n_cities) for _ in range(n_nests)]
+    fitness = [tour_length(tour, cities) for tour in nests]
+
+    best_index = min(range(n_nests), key=lambda i: fitness[i])
+    best_tour = nests[best_index][:]
+    best_distance = fitness[best_index]
+
+    for t in range(max_iter):
+
+        # Generate new cuckoo (solution) by Levy flight
+        j = random.randrange(n_nests)
+        cuckoo = discrete_levy_flight(nests[j])
+        cuckoo_fit = tour_length(cuckoo, cities)
+
+        # Pick a random nest to compare
+        k = random.randrange(n_nests)
+        if cuckoo_fit < fitness[k]:  # for minimization
+            nests[k] = cuckoo
+            fitness[k] = cuckoo_fit
+
+        # Abandon some nests with probability pa
+        for i in range(n_nests):
+            if random.random() < pa:
+                nests[i] = random_permutation(n_cities)
+                fitness[i] = tour_length(nests[i], cities)
+
+        # Update best solution
+        best_index = min(range(n_nests), key=lambda i: fitness[i])
+        if fitness[best_index] < best_distance:
+            best_tour = nests[best_index][:]
+            best_distance = fitness[best_index]
+
+        if verbose and (t % (max_iter // 10 + 1) == 0):
+            print(f"Iteration {t}: Best distance so far = {best_distance:.3f}")
+
+    return best_tour, best_distance
+
+# ---------- Interactive Part ----------
+if __name__ == "__main__":
+    print("=== Cuckoo Search Algorithm for TSP ===")
+
+    # Get number of cities
+    n_cities = int(input("Enter number of cities: "))
+    cities = []
+    for i in range(n_cities):
+        x = float(input(f"Enter x-coordinate of city {i}: "))
+        y = float(input(f"Enter y-coordinate of city {i}: "))
+        cities.append((x, y))
+
+    # Get algorithm parameters
+    n_nests = int(input("Enter number of nests (population size): "))
+    pa = float(input("Enter discovery probability (0.0-1.0): "))
+    max_iter = int(input("Enter maximum number of iterations: "))
+
+    print("\nRunning Cuckoo Search...")
+    best_tour, best_dist = cuckoo_search_tsp(
+        cities, n_nests=n_nests, pa=pa, max_iter=max_iter, verbose=True
+    )
+
+    print("\n=== Result ===")
+    print("Best tour (city indices):", best_tour)
+    print(f"Best distance: {best_dist:.3f}")
