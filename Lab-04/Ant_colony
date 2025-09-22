@@ -1,0 +1,124 @@
+import random
+import numpy as np
+
+# Distance function to calculate Euclidean distance
+def calculate_distance(city1, city2):
+    return np.sqrt((city1[0] - city2[0])**2 + (city1[1] - city2[1])**2)
+
+# Ant Colony Optimization for TSP
+def ant_colony_optimization(cities, n_ants, n_best, n_iterations, decay, alpha=1, beta=5, Q=100):
+    n_cities = len(cities)
+    
+    # Distance matrix between cities
+    dist = np.zeros((n_cities, n_cities))
+    for i in range(n_cities):
+        for j in range(n_cities):
+            dist[i][j] = calculate_distance(cities[i], cities[j])
+    
+    # Pheromone matrix: initially small values
+    pheromone = np.ones((n_cities, n_cities)) * 0.1
+    
+    # Best path and its length
+    best_path = None
+    best_path_length = float('inf')
+    
+    for _ in range(n_iterations):
+        all_paths = []
+        all_lengths = []
+        
+        # Each ant's journey
+        for ant in range(n_ants):
+            path = []
+            visited = [False] * n_cities
+            current_city = random.randint(0, n_cities - 1)
+            path.append(current_city)
+            visited[current_city] = True
+            
+            # Construct the path for this ant
+            for _ in range(n_cities - 1):
+                next_city = choose_next_city(current_city, visited, pheromone, dist, alpha, beta)
+                path.append(next_city)
+                visited[next_city] = True
+                current_city = next_city
+            
+            # Add the return trip to the start city to complete the cycle
+            path.append(path[0])
+            
+            # Calculate the path length
+            path_length = calculate_path_length(path, dist)
+            
+            # Store the path and its length
+            all_paths.append(path)
+            all_lengths.append(path_length)
+            
+            # Update the best path if necessary
+            if path_length < best_path_length:
+                best_path_length = path_length
+                best_path = path
+        
+        # Pheromone evaporation (decay) - make pheromones less influential over time
+        pheromone *= (1 - decay)
+        
+        # Update pheromones based on the best paths
+        for path, length in zip(all_paths[:n_best], all_lengths[:n_best]):
+            for i in range(len(path) - 1):
+                pheromone[path[i]][path[i+1]] += Q / length
+                
+        print(f"Best path length so far: {best_path_length}")
+    
+    return best_path, best_path_length
+
+# Function to choose the next city based on pheromone and distance (probabilistic)
+def choose_next_city(current_city, visited, pheromone, dist, alpha, beta):
+    n_cities = len(pheromone)
+    probabilities = []
+    
+    for i in range(n_cities):
+        if not visited[i]:
+            # Calculate the probability of selecting city i
+            pheromone_level = pheromone[current_city][i] ** alpha
+            distance_factor = (1.0 / dist[current_city][i]) ** beta
+            probabilities.append(pheromone_level * distance_factor)
+        else:
+            probabilities.append(0)
+    
+    # Normalize probabilities
+    total_prob = sum(probabilities)
+    probabilities = [p / total_prob for p in probabilities]
+    
+    # Choose the next city based on the probabilities
+    next_city = random.choices(range(n_cities), weights=probabilities)[0]
+    
+    return next_city
+
+# Calculate the length of a given path
+def calculate_path_length(path, dist):
+    length = 0
+    for i in range(len(path) - 1):
+        length += dist[path[i]][path[i+1]]
+    return length
+
+# Example: Running the Ant Colony Optimization for TSP
+if __name__ == "__main__":
+    # Define cities as (x, y) coordinates
+    cities = [
+        (0, 0),
+        (1, 2),
+        (2, 4),
+        (3, 1),
+        (5, 0),
+        (6, 3)
+    ]
+    
+    # Parameters for ACO
+    n_ants = 10
+    n_best = 5
+    n_iterations = 100
+    decay = 0.95  # pheromone decay rate
+    
+    # Run the ACO algorithm
+    best_path, best_path_length = ant_colony_optimization(cities, n_ants, n_best, n_iterations, decay)
+    
+    # Print the results
+    print("Best path found:", best_path)
+    print("Length of best path:", best_path_length)
