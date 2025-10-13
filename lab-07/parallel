@@ -1,0 +1,99 @@
+import random
+
+# Constants for cell states
+EMPTY = " "
+TREE = "T"
+BURNING = "F"
+
+# Function to get valid neighbors
+def get_neighbors(grid, i, j, neighborhood_type=8):
+    rows = len(grid)
+    cols = len(grid[0])
+    neighbors = []
+    
+    if neighborhood_type == 4:
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    else:  # 8 neighbors
+        directions = [
+            (-1, -1), (-1, 0), (-1, 1),
+            (0, -1),          (0, 1),
+            (1, -1), (1, 0), (1, 1)
+        ]
+    
+    for dx, dy in directions:
+        x, y = i + dx, j + dy
+        if 0 <= x < rows and 0 <= y < cols:
+            neighbors.append((x, y))
+    
+    return neighbors
+
+
+# Main Forest Fire Model function
+def ForestFireModel(grid, num_iterations, prob_lightning, prob_tree_growth):
+    for _ in range(num_iterations):
+        new_grid = [row[:] for row in grid]  # copy grid
+        
+        for i in range(len(grid)):
+            for j in range(len(grid[0])):
+                state = grid[i][j]
+                neighbors = get_neighbors(grid, i, j, 8)
+                
+                if state == BURNING:
+                    new_grid[i][j] = EMPTY  # burning tree becomes empty
+                
+                elif state == TREE:
+                    # if any neighbor is burning, catch fire
+                    if any(grid[x][y] == BURNING for x, y in neighbors):
+                        new_grid[i][j] = BURNING
+                    # lightning can strike randomly
+                    elif random.random() < prob_lightning:
+                        new_grid[i][j] = BURNING
+                
+                elif state == EMPTY:
+                    # new tree grows randomly
+                    if random.random() < prob_tree_growth:
+                        new_grid[i][j] = TREE
+        
+        grid = new_grid
+        print_grid(grid)  # print each iteration step
+    return grid
+
+
+# Function to print grid
+def print_grid(grid):
+    for row in grid:
+        print(" ".join(row))
+    print("-" * (2 * len(grid[0]) - 1))
+
+
+# ----- MAIN CODE -----
+if __name__ == "__main__":
+    # Input from user
+    rows = int(input("Enter number of rows: "))
+    cols = int(input("Enter number of columns: "))
+    num_iterations = int(input("Enter number of iterations: "))
+    prob_lightning = float(input("Enter probability of lightning (0-1): "))
+    prob_tree_growth = float(input("Enter probability of tree growth (0-1): "))
+
+    # Initialize random grid (user can customize this)
+    grid = []
+    for i in range(rows):
+        row = []
+        for j in range(cols):
+            r = random.random()
+            if r < 0.6:
+                row.append(TREE)
+            elif r < 0.8:
+                row.append(EMPTY)
+            else:
+                row.append(BURNING)
+        grid.append(row)
+
+    print("\nInitial Forest:")
+    print_grid(grid)
+
+    print("Simulating fire spread...\n")
+    final_grid = ForestFireModel(grid, num_iterations, prob_lightning, prob_tree_growth)
+
+    print("Final Forest State:")
+    print_grid(final_grid)
