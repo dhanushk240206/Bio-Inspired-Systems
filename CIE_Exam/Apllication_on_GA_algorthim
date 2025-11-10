@@ -1,0 +1,115 @@
+import random
+import numpy as np
+
+
+NUM_AIRCRAFT = 5
+NUM_FLIGHTS = 20
+
+
+aircraft_costs = np.random.randint(1000, 4000, NUM_AIRCRAFT)
+
+flight_times = [(random.randint(6, 20), random.randint(21, 23)) for _ in range(NUM_FLIGHTS)]
+
+aircraft_availability = [(6, 24) for _ in range(NUM_AIRCRAFT)]
+
+POP_SIZE = 100         
+GENERATIONS = 200      
+MUTATION_RATE = 0.1    
+TOURNAMENT_SIZE = 5     
+ELITISM = True         
+
+
+def initialize_population():
+    """Create an initial population of random schedules."""
+    return [np.random.randint(0, NUM_AIRCRAFT, NUM_FLIGHTS) for _ in range(POP_SIZE)]
+
+def calculate_fitness(chromosome):
+    """Calculate how good the schedule is."""
+    total_cost = 0
+    penalty = 0
+    aircraft_usage = [0] * NUM_AIRCRAFT
+
+  
+    for flight_idx, aircraft_idx in enumerate(chromosome):
+        dep, arr = flight_times[flight_idx]
+        cost = aircraft_costs[aircraft_idx]
+        total_cost += cost
+        aircraft_usage[aircraft_idx] += (arr - dep)
+
+   
+        if dep < aircraft_availability[aircraft_idx][0] or arr > aircraft_availability[aircraft_idx][1]:
+            penalty += 1000
+
+
+    utilization_score = np.mean(aircraft_usage) * 10
+
+
+    fitness = 100000 - total_cost + utilization_score - penalty
+    return max(0, fitness)  
+
+def selection(population, fitnesses):
+    """Select one parent using tournament selection."""
+    selected = []
+    for _ in range(TOURNAMENT_SIZE):
+        idx = random.randint(0, len(population) - 1)
+        selected.append((population[idx], fitnesses[idx]))
+    selected.sort(key=lambda x: x[1], reverse=True)
+    return selected[0][0]
+
+def crossover(parent1, parent2):
+    """Single-point crossover to create a child."""
+    point = random.randint(1, NUM_FLIGHTS - 1)
+    child = np.concatenate((parent1[:point], parent2[point:]))
+    return child
+
+def mutate(chromosome):
+    """Randomly change aircraft assignments (mutation)."""
+    for i in range(NUM_FLIGHTS):
+        if random.random() < MUTATION_RATE:
+            chromosome[i] = random.randint(0, NUM_AIRCRAFT - 1)
+    return chromosome
+
+def genetic_algorithm():
+    population = initialize_population()
+    best_solution = None
+    best_fitness = float("-inf")
+
+    for gen in range(GENERATIONS):
+        fitnesses = [calculate_fitness(ch) for ch in population]
+        new_population = []
+
+    
+        if ELITISM:
+            elite_idx = np.argmax(fitnesses)
+            new_population.append(population[elite_idx])
+
+        # Create next generation
+        while len(new_population) < POP_SIZE:
+            parent1 = selection(population, fitnesses)
+            parent2 = selection(population, fitnesses)
+            child = crossover(parent1, parent2)
+            child = mutate(child)
+            new_population.append(child)
+
+        population = new_population
+
+
+        gen_best = np.max(fitnesses)
+        if gen_best > best_fitness:
+            best_fitness = gen_best
+            best_solution = population[np.argmax(fitnesses)]
+
+        if gen % 20 == 0:
+            print(f"Generation {gen:3d} | Best Fitness: {best_fitness:.2f}")
+
+    return best_solution, best_fitness
+
+best_schedule, best_fit = genetic_algorithm()
+
+print("\nBest Schedule Found:")
+for i, aircraft in enumerate(best_schedule):
+    print(f"Flight {i} → Aircraft {aircraft}")
+
+print(f"\nBest Fitness Score: {best_fit:.2f}")
+
+print("\nAircraft operating costs:", aircraft_costs)
